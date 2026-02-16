@@ -3,11 +3,17 @@ services:
     name: openclaw-triage-api
     runtime: python
     plan: free
-    buildCommand: pip install -e "."
-    startCommand: uvicorn openclaw_triage.api:app --host 0.0.0.0 --port $PORT
+    region: oregon
+    buildCommand: |
+      apt-get update && apt-get install -y git
+      pip install -e "."
+    startCommand: uvicorn openclaw_triage.api:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
     envVars:
       - key: PYTHONPATH
         value: .
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: GITHUB_TOKEN
         sync: false
       - key: ANTHROPIC_API_KEY
@@ -18,4 +24,3 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: INFO
-    healthCheckPath: /health
