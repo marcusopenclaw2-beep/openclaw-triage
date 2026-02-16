@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: openclaw-triage-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -e "."
+    startCommand: uvicorn openclaw_triage.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHONPATH
+        value: .
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: POST_COMMENTS
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+    healthCheckPath: /health

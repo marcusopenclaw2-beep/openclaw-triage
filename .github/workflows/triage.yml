@@ -1,0 +1,93 @@
+name: PR Triage
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install OpenClaw Triage
+        run: |
+          pip install git+https://github.com/openclaw/openclaw-triage.git
+      
+      - name: Run Triage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            openclaw-triage analyze-pr ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json > triage_result.json
+          else
+            openclaw-triage analyze-issue ${{ github.event.issue.number }} --repo ${{ github.repository }} --json > triage_result.json
+          fi
+      
+      - name: Post Triage Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const result = JSON.parse(fs.readFileSync('triage_result.json', 'utf8'));
+            
+            // Build comment body
+            let body = `## 🤖 Triage Analysis\n\n`;
+            body += `**Executive Summary:** ${result.executive_summary}\n\n`;
+            body += `**Priority:** ${result.priority.toUpperCase()}\n\n`;
+            body += `**Recommended Action:** ${result.recommended_action}\n\n`;
+            
+            // Add deduplication info
+            if (result.deduplication?.is_duplicate) {
+              body += `### ⚠️ Duplicate Detected\n`;
+              body += `Likely duplicate of #${result.deduplication.canonical_item.item_number}\n\n`;
+            }
+            
+            // Add base detection info
+            if (result.base_detection?.is_base_candidate) {
+              body += `### ⭐ Base PR Candidate\n`;
+              body += `Score: ${(result.base_detection.score.total_score * 100).toFixed(0)}%\n\n`;
+            }
+            
+            // Add vision alignment
+            if (result.vision_alignment) {
+              const status = result.vision_alignment.status;
+              const emoji = status === 'aligned' ? '✅' : status === 'misaligned' ? '❌' : '🤔';
+              body += `### ${emoji} Vision Alignment\n`;
+              body += `Status: ${status} (${(result.vision_alignment.alignment_score * 100).toFixed(0)}%)\n\n`;
+            }
+            
+            // Post comment
+            const issue_number = context.issue?.number || context.payload.pull_request?.number;
+            github.rest.issues.createComment({
+              issue_number: issue_number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+            
+            // Add labels based on priority
+            const labels = [`priority:${result.priority}`];
+            if (result.deduplication?.is_duplicate) labels.push('duplicate');
+            if (result.base_detection?.is_base_candidate) labels.push('base-candidate');
+            if (result.vision_alignment?.status === 'misaligned') labels.push('vision-discussion');
+            
+            github.rest.issues.addLabels({
+              issue_number: issue_number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: labels
+            });
