@@ -1,0 +1,12 @@
+runtime: python311
+
+entrypoint: uvicorn openclaw_triage.api:app --host 0.0.0.0 --port $PORT
+
+env_variables:
+  GITHUB_TOKEN: ""
+  ANTHROPIC_API_KEY: ""
+  PYTHONPATH: "."
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 2

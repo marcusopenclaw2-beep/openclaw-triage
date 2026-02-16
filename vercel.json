@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/openclaw_triage/api.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/openclaw_triage/api.py"
+    }
+  ],
+  "env": {
+    "PYTHONPATH": "."
+  }
+}

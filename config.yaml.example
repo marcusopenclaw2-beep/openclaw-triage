@@ -1,0 +1,44 @@
+# OpenClaw Triage Configuration
+
+# Deduplication settings
+dedup:
+  similarity_threshold: 0.85
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  vector_db_path: "./data/vectors"
+  max_candidates: 10
+
+# Base PR detection settings
+base_detection:
+  weight_chronological: 0.25
+  weight_quality: 0.30
+  weight_engagement: 0.20
+  weight_author: 0.15
+  weight_completeness: 0.10
+  min_quality_score: 0.6
+  min_test_coverage: 0.5
+
+# Deep review settings
+review:
+  llm_model: "claude-3-5-sonnet-20241022"
+  max_tokens: 4000
+  temperature: 0.1
+  enable_security_check: true
+  enable_performance_check: true
+
+# Vision alignment settings
+vision:
+  vision_doc_path: "./VISION.md"
+  alignment_threshold: 0.7
+  auto_reject_threshold: 0.3
+
+# GitHub settings (can also use env vars)
+github:
+  token: ""  # GITHUB_TOKEN env var
+  webhook_secret: ""  # TRIAGE_GITHUB_WEBHOOK_SECRET env var
+
+# App settings
+app_name: "openclaw-triage"
+debug: false
+log_level: "INFO"
+api_host: "0.0.0.0"
+api_port: 8080
