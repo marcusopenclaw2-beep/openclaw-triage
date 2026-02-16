@@ -4,7 +4,7 @@ services:
   api:
     build: .
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:8080"
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -12,6 +12,7 @@ services:
       - WEBHOOK_SECRET=${WEBHOOK_SECRET}
       - POST_COMMENTS=${POST_COMMENTS:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONPATH=/app
     volumes:
       - ./data:/app/data
     restart: unless-stopped
@@ -21,26 +22,48 @@ services:
       timeout: 10s
       retries: 3
 
-  # Optional: Redis for caching/queue
+  # Optional: Redis for caching and queue
   redis:
     image: redis:7-alpine
     volumes:
       - redis-data:/data
     restart: unless-stopped
 
-  # Optional: Worker for background jobs
+  # Optional: Worker for background batch processing
   worker:
     build: .
     command: python -m openclaw_triage.worker
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/app
     depends_on:
       - redis
     restart: unless-stopped
     profiles:
       - worker
+
+  # Optional: Scheduled batch analysis
+  scheduler:
+    build: .
+    command: >
+      sh -c "while true; do
+        echo 'Running batch analysis...';
+        python -m openclaw_triage.worker batch openclaw/openclaw 50 || true;
+        echo 'Sleeping for 1 hour...';
+        sleep 3600;
+      done"
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POST_COMMENTS=${POST_COMMENTS:-false}
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    profiles:
+      - scheduler
 
 volumes:
   redis-data:
